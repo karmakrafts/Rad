@@ -28,9 +28,12 @@ allprojects {
     repositories {
         mavenCentral()
         google()
-        gitlab().apply {
-            packageRegistry(project("kk/skroll"))
-            packageRegistry(project("kk/multiplatform-pthread"))
+        //gitlab().apply {
+        //    packageRegistry(project("kk/skroll"))
+        //    packageRegistry(project("kk/multiplatform-pthread"))
+        //}
+        maven("http://127.0.0.1:1814") {
+            isAllowInsecureProtocol = true
         }
     }
 }

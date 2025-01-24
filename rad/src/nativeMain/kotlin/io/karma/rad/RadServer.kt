@@ -87,6 +87,7 @@ internal class RadServer( // @formatter:off
                 logger.debug { "Got maven request: $path" }
                 // @formatter:off
                 val response = index.projects.value
+                    .filter { it.path in path } // Pre-filter by project slug
                     .map {
                         coroutineScope.async {
                             val targetPath = "${it.links.self}/packages$path"
