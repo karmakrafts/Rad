@@ -6,5 +6,26 @@ It was built for GitLab CE to make up for the lack of group- and instance-endpoi
 ### Usage
 
 ```shell
-./rad.kexe -a gitlab.com
+./rad.kexe --config rad.json
+```
+
+You can also run
+
+```shell
+./rad.kexe --help
+```
+
+to get a list of all available commands.
+
+### Example config
+
+```json
+{
+    "instance": "gitlab.com",
+    "group": [
+        "mygroup1",
+        "mygroup2"
+    ],
+    "poll_delay": 10000
+}
 ```
