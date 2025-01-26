@@ -4,7 +4,7 @@ rad = "1.0.2"
 kotlin = "2.1.0" # https://github.com/JetBrains/kotlin/releases
 kotlinxSerialization = "1.8.0" # https://github.com/Kotlin/kotlinx.serialization/releases
 annotations = "26.0.1" # https://mvnrepository.com/artifact/org.jetbrains/annotations
-ktor = "3.0.3" # https://github.com/ktorio/ktor/releases
+ktor = "3.1.0" # https://github.com/ktorio/ktor/releases
 clikt = "4.4.0" # https://github.com/ajalt/clikt/releases
 skroll = "1.2.1" # https://git.karmakrafts.dev/kk/skroll/-/packages
 
