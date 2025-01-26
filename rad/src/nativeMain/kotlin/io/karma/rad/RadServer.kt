@@ -26,6 +26,7 @@ import io.ktor.server.application.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -38,6 +39,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import org.intellij.lang.annotations.Language
 
 typealias CIOServer = EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>
 
@@ -47,7 +49,8 @@ internal class RadServer( // @formatter:off
     val config: RadConfig
 ) { // @formatter:on
     companion object {
-        private val pathRegex: Regex = Regex("/.+")
+        private const val DEFAULT_USER_AGENT: String =
+            "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0"
     }
 
     private val logger: Logger = Logger.create(this::class)
@@ -77,37 +80,119 @@ internal class RadServer( // @formatter:off
         module = { configure() }
     ) // @formatter:on
 
+    private suspend fun RoutingCall.respondHtml(@Language("html") html: String) {
+        respondText(html, ContentType.Text.Html, HttpStatusCode.OK)
+    }
+
+    private fun ResponseHeaders.appendFrom(headers: Headers, vararg keys: String) {
+        for (key in keys) {
+            append(key, headers[key] ?: continue)
+        }
+    }
+
+    private suspend fun findRoutingTarget(path: String, userAgent: String): HttpResponse? {
+        return index.projects.value.filter { it.path in path }.map {
+            coroutineScope.async {
+                val targetPath = "${it.links.self}/packages$path"
+                logger.debug { "Attempting to resolve at $targetPath" }
+                client.client.get(targetPath) {
+                    headers {
+                        append("user-agent", userAgent)
+                        append("accept", "*/*")
+                    }
+                }
+            }
+        }.awaitAll().find { it.status == HttpStatusCode.OK }
+    }
+
     private fun Application.configure() {
         install(ContentNegotiation) {
             json(json)
         }
+        install(StatusPages)
         routing {
-            get("/maven/{...}") {
-                val path = call.request.path()
-                logger.debug { "Got maven request: $path" }
-                // @formatter:off
-                val response = index.projects.value
-                    .filter { it.path in path } // Pre-filter by project slug
-                    .map {
-                        coroutineScope.async {
-                            val targetPath = "${it.links.self}/packages$path"
-                            logger.debug { "Attempting to resolve at $targetPath" }
-                            client.client.get(targetPath)
-                        }
+            get("/status") {
+                val projectList = index.projects.value.joinToString(
+                    "\n"
+                ) { "<li><b>${it.name}</b>: ${it.links.self}</li>" }
+                call.respondHtml(
+                    """
+                    <html lang='en'>
+                        <head>
+                            <meta charset='UTF-8'>
+                            <title>Rad Status</title>
+                        </head>
+                        <body>
+                            <h1>Serving projects</h1>
+                            <ul>
+                                $projectList
+                            </ul>
+                        </body>
+                    </html>
+                """.trimIndent()
+                )
+            }
+            head("/maven/{...}") {
+                val request = call.request
+                val path = request.path()
+                logger.debug { "Got HEAD request: $path" }
+                val userAgent = request.header("user-agent") ?: DEFAULT_USER_AGENT
+                val proxiedResponse = findRoutingTarget(path, userAgent)
+                if (proxiedResponse == null) {
+                    logger.debug { "Couldn't find resource $path" }
+                    call.respond(HttpStatusCode.NotFound)
+                    return@head
+                }
+                logger.debug { "Found resource: $proxiedResponse" }
+                call.response.apply {
+                    cacheControl(CacheControl.NoCache(null))
+                    headers.apply {
+                        append("user-agent", userAgent)
+                        append("vary", "Origin")
+                        appendFrom(
+                            proxiedResponse.headers,
+                            "x-checksum-sha1",
+                            "x-checksum-sha512",
+                            "x-checksum-md5",
+                            "x-content-type-options",
+                            "x-frame-options",
+                            "x-gitlab-meta",
+                            "cf-cache-status"
+                        )
                     }
-                    .awaitAll()
-                    .find { it.status == HttpStatusCode.OK }
-                // @formatter:on
-                if (response == null) {
+                }
+                call.respond(HttpStatusCode.OK)
+            }
+            get("/maven/{...}") {
+                val request = call.request
+                val path = request.path()
+                logger.debug { "Got GET request: $path" }
+                val userAgent = request.header("user-agent") ?: DEFAULT_USER_AGENT
+                val proxiedResponse = findRoutingTarget(path, userAgent)
+                if (proxiedResponse == null) {
                     logger.debug { "Couldn't find resource $path" }
                     call.respond(HttpStatusCode.NotFound)
                     return@get
                 }
-                logger.debug { "Found resource: $response" }
-                call.respondBytes(ContentType.Application.OctetStream, HttpStatusCode.OK, response::bodyAsBytes)
-            }
-            get("/health") {
-                call.respondText("Proxy is running", status = HttpStatusCode.OK)
+                logger.debug { "Found resource: $proxiedResponse" }
+                call.response.apply {
+                    cacheControl(CacheControl.NoCache(null))
+                    headers.apply {
+                        append("user-agent", userAgent)
+                        append("vary", "Origin")
+                        appendFrom(
+                            proxiedResponse.headers,
+                            "x-checksum-sha1",
+                            "x-checksum-sha512",
+                            "x-checksum-md5",
+                            "x-content-type-options",
+                            "x-frame-options",
+                            "x-gitlab-meta",
+                            "cf-cache-status"
+                        )
+                    }
+                }
+                call.respondBytes(ContentType.Application.OctetStream, HttpStatusCode.OK, proxiedResponse::bodyAsBytes)
             }
         }
     }
@@ -131,7 +216,7 @@ internal class RadServer( // @formatter:off
             logger.info { "Starting command coroutine" }
             while (true) {
                 when (readlnOrNull() ?: yield()) {
-                    "exit" -> break
+                    "exit", "stop", "quit" -> break
                 }
             }
             logger.info { "Stopping command coroutine" }

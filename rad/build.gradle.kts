@@ -51,8 +51,10 @@ kotlin {
                 implementation(libs.ktor.server.core)
                 implementation(libs.ktor.server.cio)
                 implementation(libs.ktor.server.contentNegotiation)
+                implementation(libs.ktor.server.statusPages)
                 implementation(libs.ktor.serialization.kotlinxJson)
                 implementation(libs.skroll)
+                implementation(libs.annotations)
             }
         }
     }
