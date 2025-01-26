@@ -54,7 +54,6 @@ kotlin {
                 implementation(libs.ktor.serialization.kotlinxJson)
                 implementation(libs.skroll)
                 implementation(libs.skroll.ktor)
-                implementation(libs.annotations)
             }
         }
     }

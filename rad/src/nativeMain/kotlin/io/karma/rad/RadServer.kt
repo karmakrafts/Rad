@@ -81,7 +81,7 @@ internal class RadServer( // @formatter:off
         module = { configure() }
     ) // @formatter:on
 
-    private suspend fun RoutingCall.respondHtml(@Language("html") html: String) {
+    private suspend fun RoutingCall.respondHtml(html: String) {
         respondText(html, ContentType.Text.Html, HttpStatusCode.OK)
     }
 

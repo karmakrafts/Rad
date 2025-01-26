@@ -1,5 +1,5 @@
 [versions]
-rad = "1.0.1"
+rad = "1.0.2"
 
 kotlin = "2.1.0" # https://github.com/JetBrains/kotlin/releases
 kotlinxSerialization = "1.8.0" # https://github.com/Kotlin/kotlinx.serialization/releases
@@ -22,7 +22,6 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 skroll = { module = "io.karma.skroll:skroll", version.ref = "skroll" }
 skroll-ktor = { module = "io.karma.skroll:skroll-ktor", version.ref = "skroll" }
-annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
