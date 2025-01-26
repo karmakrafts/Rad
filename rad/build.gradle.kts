@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlinx.serialization)
-    alias(libs.plugins.dokka)
     `maven-publish`
 }
 
@@ -54,25 +53,9 @@ kotlin {
                 implementation(libs.ktor.server.statusPages)
                 implementation(libs.ktor.serialization.kotlinxJson)
                 implementation(libs.skroll)
+                implementation(libs.skroll.ktor)
                 implementation(libs.annotations)
             }
-        }
-    }
-}
-
-val dokkaJar by tasks.registering(Jar::class) {
-    dependsOn(tasks.dokkaGeneratePublicationHtml)
-    from(tasks.dokkaGeneratePublicationHtml.flatMap { it.outputDirectory })
-    archiveClassifier = "javadoc"
-}
-
-tasks {
-    System.getProperty("publishDocs.root")?.let { docsDir ->
-        register<Copy>("publishDocs") {
-            dependsOn(dokkaJar)
-            mustRunAfter(dokkaJar)
-            from(zipTree(dokkaJar.get().outputs.files.first()))
-            into(docsDir)
         }
     }
 }
@@ -83,7 +66,6 @@ publishing {
     }
     publications.configureEach {
         if (this is MavenPublication) {
-            artifact(dokkaJar)
             pom {
                 name = project.name
                 description = "Repository aggregation daemon for GitLab."

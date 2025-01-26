@@ -17,6 +17,7 @@
 package io.karma.rad
 
 import io.karma.skroll.Logger
+import io.karma.skroll.asKtorLogger
 import io.karma.skroll.error
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -90,6 +91,19 @@ internal class RadServer( // @formatter:off
         }
     }
 
+    private fun ResponseHeaders.appendCommonFrom(headers: Headers) {
+        appendFrom(
+            headers,
+            "x-checksum-sha1",
+            "x-checksum-sha512",
+            "x-checksum-md5",
+            "x-content-type-options",
+            "x-frame-options",
+            "x-gitlab-meta",
+            "cf-cache-status"
+        )
+    }
+
     private suspend fun findRoutingTarget(path: String, userAgent: String): HttpResponse? {
         return index.projects.value.filter { it.path in path }.map {
             coroutineScope.async {
@@ -103,6 +117,33 @@ internal class RadServer( // @formatter:off
                 }
             }
         }.awaitAll().find { it.status == HttpStatusCode.OK }
+    }
+
+    private suspend fun RoutingContext.handleProxyRequest(sendData: Boolean = true) {
+        val request = call.request
+        val path = request.path()
+        logger.debug { "Got GET request: $path" }
+        val userAgent = request.header("user-agent") ?: DEFAULT_USER_AGENT
+        val proxiedResponse = findRoutingTarget(path, userAgent)
+        if (proxiedResponse == null) {
+            logger.debug { "Couldn't find resource $path" }
+            call.respond(HttpStatusCode.NotFound)
+            return
+        }
+        logger.debug { "Found resource: $proxiedResponse" }
+        call.response.apply {
+            cacheControl(CacheControl.NoCache(null))
+            headers.apply {
+                append("user-agent", userAgent)
+                append("vary", "Origin")
+                appendCommonFrom(proxiedResponse.headers)
+            }
+        }
+        if (sendData) {
+            call.respondBytes(ContentType.Application.OctetStream, HttpStatusCode.OK, proxiedResponse::bodyAsBytes)
+            return
+        }
+        call.respond(HttpStatusCode.OK) // For handling HEAD requests
     }
 
     private fun Application.configure() {
@@ -133,66 +174,10 @@ internal class RadServer( // @formatter:off
                 )
             }
             head("/maven/{...}") {
-                val request = call.request
-                val path = request.path()
-                logger.debug { "Got HEAD request: $path" }
-                val userAgent = request.header("user-agent") ?: DEFAULT_USER_AGENT
-                val proxiedResponse = findRoutingTarget(path, userAgent)
-                if (proxiedResponse == null) {
-                    logger.debug { "Couldn't find resource $path" }
-                    call.respond(HttpStatusCode.NotFound)
-                    return@head
-                }
-                logger.debug { "Found resource: $proxiedResponse" }
-                call.response.apply {
-                    cacheControl(CacheControl.NoCache(null))
-                    headers.apply {
-                        append("user-agent", userAgent)
-                        append("vary", "Origin")
-                        appendFrom(
-                            proxiedResponse.headers,
-                            "x-checksum-sha1",
-                            "x-checksum-sha512",
-                            "x-checksum-md5",
-                            "x-content-type-options",
-                            "x-frame-options",
-                            "x-gitlab-meta",
-                            "cf-cache-status"
-                        )
-                    }
-                }
-                call.respond(HttpStatusCode.OK)
+                handleProxyRequest(false)
             }
             get("/maven/{...}") {
-                val request = call.request
-                val path = request.path()
-                logger.debug { "Got GET request: $path" }
-                val userAgent = request.header("user-agent") ?: DEFAULT_USER_AGENT
-                val proxiedResponse = findRoutingTarget(path, userAgent)
-                if (proxiedResponse == null) {
-                    logger.debug { "Couldn't find resource $path" }
-                    call.respond(HttpStatusCode.NotFound)
-                    return@get
-                }
-                logger.debug { "Found resource: $proxiedResponse" }
-                call.response.apply {
-                    cacheControl(CacheControl.NoCache(null))
-                    headers.apply {
-                        append("user-agent", userAgent)
-                        append("vary", "Origin")
-                        appendFrom(
-                            proxiedResponse.headers,
-                            "x-checksum-sha1",
-                            "x-checksum-sha512",
-                            "x-checksum-md5",
-                            "x-content-type-options",
-                            "x-frame-options",
-                            "x-gitlab-meta",
-                            "cf-cache-status"
-                        )
-                    }
-                }
-                call.respondBytes(ContentType.Application.OctetStream, HttpStatusCode.OK, proxiedResponse::bodyAsBytes)
+                handleProxyRequest()
             }
         }
     }

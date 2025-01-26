@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-plugins {
-    alias(libs.plugins.dokka) apply false
-}
-
 group = "io.karma.rad"
 version = CI.getDefaultVersion(libs.versions.rad)
 
@@ -27,6 +23,7 @@ allprojects {
 
     repositories {
         mavenCentral()
+        mavenLocal()
         google()
         maven("https://maven.karmakrafts.dev/maven")
     }

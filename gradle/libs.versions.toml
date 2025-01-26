@@ -1,14 +1,12 @@
 [versions]
-rad = "1.0.0"
+rad = "1.0.1"
 
 kotlin = "2.1.0" # https://github.com/JetBrains/kotlin/releases
 kotlinxSerialization = "1.8.0" # https://github.com/Kotlin/kotlinx.serialization/releases
 annotations = "26.0.1" # https://mvnrepository.com/artifact/org.jetbrains/annotations
 ktor = "3.0.3" # https://github.com/ktorio/ktor/releases
 clikt = "4.4.0" # https://github.com/ajalt/clikt/releases
-skroll = "1.1.2.6-SNAPSHOT" # https://git.karmakrafts.dev/kk/skroll/-/packages
-kotest = "6.0.0.M1" # https://github.com/kotest/kotest/releases
-dokka = "2.0.0" # https://github.com/Kotlin/dokka/releases
+skroll = "1.2.1" # https://git.karmakrafts.dev/kk/skroll/-/packages
 
 [libraries]
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
@@ -23,11 +21,9 @@ kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 skroll = { module = "io.karma.skroll:skroll", version.ref = "skroll" }
+skroll-ktor = { module = "io.karma.skroll:skroll-ktor", version.ref = "skroll" }
 annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
-kotest-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 
 [plugins]
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinxSerialization" }
-dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
