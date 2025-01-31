@@ -128,22 +128,17 @@ publish:
     - build:release
   script:
     - mkdir sorted_artifacts/
-    - |
-      cp rad/build/bin/linuxX64/releaseExecutable/rad.kexe sorted_artifacts/rad-linux-x64.kexe
-      cp rad/build/bin/linuxArm64/releaseExecutable/rad.kexe sorted_artifacts/rad-linux-arm64.kexe
-      cp rad/build/bin/macosX64/releaseExecutable/rad.kexe sorted_artifacts/rad-macos-x64.kexe
-      cp rad/build/bin/macosArm64/releaseExecutable/rad.kexe sorted_artifacts/rad-macos-arm64.kexe
-      cp rad/build/bin/mingwX64/releaseExecutable/rad.exe sorted_artifacts/rad-windows-x64.exe
+    - cp rad/build/bin/linuxX64/releaseExecutable/rad.kexe sorted_artifacts/rad-linux-x64.kexe
+    - cp rad/build/bin/linuxArm64/releaseExecutable/rad.kexe sorted_artifacts/rad-linux-arm64.kexe
+    - cp rad/build/bin/macosX64/releaseExecutable/rad.kexe sorted_artifacts/rad-macos-x64.kexe
+    - cp rad/build/bin/macosArm64/releaseExecutable/rad.kexe sorted_artifacts/rad-macos-arm64.kexe
+    - cp rad/build/bin/mingwX64/releaseExecutable/rad.exe sorted_artifacts/rad-windows-x64.exe
     - |
       RELEASE_ID=$(curl --silent --show-error --fail "$CI_API_V4_URL/projects/$CI_PROJECT_ID/repository/tags" | jq -r '.[0].name')
       echo "Latest tag is $RELEASE_ID"
       for file in sorted_artifacts/*; do
         echo "Uploading artifact $file"
-        curl --silent --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
-          --upload-file "$file" \
-          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$RELEASE_ID/assets/links" \
-          --form "name=$(basename $file)" \
-          --form "url=https://$CI_SERVER_HOST/$CI_PROJECT_PATH/-/jobs/$CI_JOB_ID/artifacts/raw/$file"
+        curl --silent --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" --upload-file "$file" "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases/$RELEASE_ID/assets/links" --form "name=$(basename $file)" --form "url=https://$CI_SERVER_HOST/$CI_PROJECT_PATH/-/jobs/$CI_JOB_ID/artifacts/raw/$file"
       done
   tags:
     - macos
