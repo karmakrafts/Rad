@@ -129,13 +129,13 @@ publish:
     - build:release
   script:
     - |
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/linuxX64/releaseExecutable/rad.kexe" "${PACKAGE_REGISTRY_URL}/rad-linux-x64.kexe"
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/linuxX64/releaseExecutable/rad.kexe" "${PACKAGE_REGISTRY_URL}/rad-linux-x64"
     - |
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/linuxArm64/releaseExecutable/rad.kexe" "${PACKAGE_REGISTRY_URL}/rad-linux-arm64.kexe"
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/linuxArm64/releaseExecutable/rad.kexe" "${PACKAGE_REGISTRY_URL}/rad-linux-arm64"
     - |
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/macosX64/releaseExecutable/rad.kexe" "${PACKAGE_REGISTRY_URL}/rad-macos-x64.kexe"
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/macosX64/releaseExecutable/rad.kexe" "${PACKAGE_REGISTRY_URL}/rad-macos-x64"
     - |
-      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/macosArm64/releaseExecutable/rad.kexe" "${PACKAGE_REGISTRY_URL}/rad-macos-arm64.kexe"
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/macosArm64/releaseExecutable/rad.kexe" "${PACKAGE_REGISTRY_URL}/rad-macos-arm64"
     - |
       curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file "rad/build/bin/mingwX64/releaseExecutable/rad.exe" "${PACKAGE_REGISTRY_URL}/rad-windows-x64.exe"
   tags:
@@ -156,15 +156,15 @@ release:
     description: '$CI_COMMIT_TAG'
     assets:
       links:
-        - name: "rad-linux-x64.kexe"
-          url: ${PACKAGE_REGISTRY_URL}/rad-linux-x64.kexe
-        - name: "rad-linux-arm64.kexe"
-          url: ${PACKAGE_REGISTRY_URL}/rad-linux-arm64.kexe
-        - name: "rad-macos-x64.kexe"
-          url: ${PACKAGE_REGISTRY_URL}/rad-macos-x64.kexe
-        - name: "rad-macos-arm64.kexe"
-          url: ${PACKAGE_REGISTRY_URL}/rad-macos-arm64.kexe
-        - name: "rad-windows-x64.kexe"
-          url: ${PACKAGE_REGISTRY_URL}/rad-windows-x64.kexe
+        - name: "Linux x64"
+          url: ${PACKAGE_REGISTRY_URL}/rad-linux-x64
+        - name: "Linux arm64"
+          url: ${PACKAGE_REGISTRY_URL}/rad-linux-arm64
+        - name: "macOS x64"
+          url: ${PACKAGE_REGISTRY_URL}/rad-macos-x64
+        - name: "macOS arm64"
+          url: ${PACKAGE_REGISTRY_URL}/rad-macos-arm64
+        - name: "Windows x64"
+          url: ${PACKAGE_REGISTRY_URL}/rad-windows-x64.exe
   tags:
     - linux
