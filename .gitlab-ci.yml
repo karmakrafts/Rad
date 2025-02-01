@@ -180,12 +180,12 @@ deploy:
     - release
   script:
     - echo "Stopping RAD service"
-    - systemctl stop rad-service.service
-    - rm -f /home/tools/rad/rad.kexe
+    - ssh root@duke.karmakrafts.local 'systemctl stop rad-service.service'
+    - ssh root@duke.karmakrafts.local 'rm -f /home/tools/rad/rad.kexe'
     - echo "Download RAD service binary"
-    - wget ${PACKAGE_REGISTRY_URL}/rad-linux-x64 -O /home/tools/rad/rad.kexe
+    - ssh root@duke.karmakrafts.local 'wget ${PACKAGE_REGISTRY_URL}/rad-linux-x64 -O /home/tools/rad/rad.kexe'
     - echo "Starting RAD service"
-    - systemctl start rad-service.service
+    - ssh root@duke.karmakrafts.local 'systemctl start rad-service.service'
     - echo "RAD service started (code $?)"
   tags:
-    - linux
+    - macos
