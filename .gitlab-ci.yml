@@ -180,12 +180,12 @@ deploy:
     - release
   script:
     - echo "Stopping RAD service"
-    - sudo systemctl stop rad-service.service
+    - systemctl stop rad-service.service
     - rm -f /home/tools/rad/rad.kexe
     - echo "Download RAD service binary"
     - wget ${PACKAGE_REGISTRY_URL}/rad-linux-x64 -O /home/tools/rad/rad.kexe
     - echo "Starting RAD service"
-    - sudo systemctl start rad-service.service
+    - systemctl start rad-service.service
     - echo "RAD service started (code $?)"
   tags:
     - linux
