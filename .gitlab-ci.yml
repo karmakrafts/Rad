@@ -10,7 +10,7 @@ stages:
   - build
   - security
   - publish
-  - deploy
+  - release
 
 variables:
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/build/${CI_COMMIT_TAG}"
@@ -119,7 +119,7 @@ build:release:
 
 # ------------------------------ Publish
 
-publish:upload:
+publish:
   stage: publish
   rules:
     - *if-release
@@ -141,12 +141,14 @@ publish:upload:
   tags:
     - macos
 
-publish:release:
-  stage: publish
+# ------------------------------ Release
+
+release:
+  stage: release
   rules:
     - *if-release
   dependencies:
-    - publish:upload
+    - publish
   script:
     - echo "Running release job for $CI_COMMIT_TAG"
   release:
