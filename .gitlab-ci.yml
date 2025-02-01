@@ -11,6 +11,7 @@ stages:
   - security
   - publish
   - release
+  - deploy
 
 variables:
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/build/${CI_COMMIT_TAG}"
@@ -166,5 +167,25 @@ release:
           url: ${PACKAGE_REGISTRY_URL}/rad-macos-arm64
         - name: "Windows x64"
           url: ${PACKAGE_REGISTRY_URL}/rad-windows-x64.exe
+  tags:
+    - linux
+
+# ------------------------------ Deploy
+
+deploy:
+  stage: deploy
+  rules:
+    - *if-release
+  dependencies:
+    - release
+  script:
+    - echo "Stopping RAD service"
+    - systemctl stop rad-service.service
+    - rm -f /home/tools/rad/rad.kexe
+    - echo "Download RAD service binary"
+    - wget ${PACKAGE_REGISTRY_URL}/rad-linux-x64 -O /home/tools/rad/rad.kexe
+    - echo "Starting RAD service"
+    - systemctl start rad-service.service
+    - echo "RAD service started (code $?)"
   tags:
     - linux
