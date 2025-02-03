@@ -1,5 +1,5 @@
 [versions]
-rad = "1.1.0"
+rad = "1.1.1"
 
 kotlin = "2.1.10" # https://github.com/JetBrains/kotlin/releases
 kotlinxSerialization = "1.8.0" # https://github.com/Kotlin/kotlinx.serialization/releases

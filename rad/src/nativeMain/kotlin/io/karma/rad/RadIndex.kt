@@ -72,7 +72,7 @@ class RadIndex(
                 }
                 response.body<List<Project>>()
             }
-        }.awaitAll().flatMap { it }
+        }.awaitAll().flatten()
     }
 
     private suspend fun fetchReleases() {

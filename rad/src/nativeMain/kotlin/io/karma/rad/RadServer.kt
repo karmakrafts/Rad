@@ -40,6 +40,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlin.native.runtime.GC
+import kotlin.native.runtime.NativeRuntimeApi
 
 typealias CIOServer = EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>
 
@@ -116,26 +118,60 @@ internal class RadServer( // @formatter:off
         }
     }
 
+    @OptIn(NativeRuntimeApi::class)
     private fun Routing.statusRouting() {
         get("/status") {
             val projectList = index.projects.value.joinToString(
                 "\n"
-            ) { "<li><b>${it.name}</b>: ${it.links.self}</li>" }
+            ) {
+                val latestRelease = index.releases.value[it.path]?.firstOrNull()?.name
+                """
+                    <div class="list-entry">
+                        <b>${it.name}</b>: ${it.links.self}<br>
+                        Latest release: ${latestRelease ?: "n/a"}
+                    </div>
+                """
+            }
             call.respondHtml(
                 """
                     <html lang='en'>
                         <head>
                             <meta charset='UTF-8'>
-                            <title>Rad Status</title>
+                            <title>RAD Status</title>
+                            <style>
+                                html {
+                                    background: #121212;
+                                    color: #EEEEEE;
+                                }
+                                h1 {
+                                    color: #1288FF
+                                }
+                                h2 {
+                                    color: #AAAAAA;
+                                }
+                                .list-entry {
+                                    padding: 8px;
+                                    margin: auto auto 16px auto;
+                                    border: 1px solid #AAAAAA;
+                                    border-radius: 6px;
+                                    background: #222222;
+                                }
+                            </style>
                         </head>
                         <body>
-                            <h1>Serving projects</h1>
-                            <ul>
-                                $projectList
-                            </ul>
+                            <h1>RAD STATUS</h1>
+                            Version: n/a<br>
+                            GitLab Instance: ${config.instance}<br>
+                            Groups: ${config.groups.size}<br>
+                            Projects: ${index.projects.value.size}<br>
+                            Releases: ${index.releases.value.values.flatten().size}<br>
+                            Object Heap: ${GC.targetHeapBytes / 1024 / 1024}MB
+                            
+                            <h2>SERVING PROJECTS</h2>
+                            $projectList
                         </body>
                     </html>
-                """.trimIndent()
+                """
             )
         }
     }
