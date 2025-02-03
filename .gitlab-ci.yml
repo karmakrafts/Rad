@@ -162,7 +162,7 @@ deploy:
   dependencies:
     - release
   script:
-    - ssh root@duke.karmakrafts.local 'cd /home/tools/rad && ./deploy.sh "${PACKAGE_REGISTRY_URL}/rad-linux-x64"'
+    - ssh root@duke.karmakrafts.local 'cd /home/tools/rad && ./deploy.sh'
     - echo "Rad service deployed (code $?)"
   tags:
     - macos
