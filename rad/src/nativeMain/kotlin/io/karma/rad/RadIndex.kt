@@ -22,7 +22,6 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -38,13 +37,15 @@ class RadIndex(
     private val endpoint: String = "https://${config.instance}/api/v4"
     private val isRunning: MutableStateFlow<Boolean> = MutableStateFlow(true)
     internal val projects: MutableStateFlow<List<Project>> = MutableStateFlow<List<Project>>(emptyList())
+    internal val releases: MutableStateFlow<Map<String, List<Release>>> = MutableStateFlow(emptyMap())
     private val pollJob: Job
 
     init {
         logger.info { "Starting polling coroutine" }
         pollJob = coroutineScope.launch {
             while (isRunning.value) {
-                update()
+                fetchProjects()
+                fetchReleases()
                 delay(config.pollDelay)
             }
         }
@@ -58,8 +59,8 @@ class RadIndex(
         }
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun fetchProjects() {
+        logger.debug { "Fetching project information.." }
         projects.value = config.groups.map { group ->
             coroutineScope.async {
                 val endpoint = "$endpoint/groups/${group.percentEncode()}/projects"
@@ -74,8 +75,18 @@ class RadIndex(
         }.awaitAll().flatMap { it }
     }
 
-    private suspend fun update() {
-        logger.info { "Updating project index" }
-        fetchProjects()
+    private suspend fun fetchReleases() {
+        releases.value = projects.value.map { project ->
+            coroutineScope.async {
+                val endpoint = "$endpoint/projects/${project.pathWithNamespace.percentEncode()}/releases"
+                logger.debug { "Sending request to endpoint $endpoint" }
+                val response = client.get(endpoint)
+                if (response.status != HttpStatusCode.OK) {
+                    logger.error { "Could not make request to $endpoint: ${response.status.description}" }
+                    return@async project.path to emptyList()
+                }
+                project.path to response.body<List<Release>>()
+            }
+        }.awaitAll().toMap()
     }
 }

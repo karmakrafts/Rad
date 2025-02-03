@@ -20,15 +20,33 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Project(
+data class Project( // @formatter:off
     val id: Long,
     val name: String,
     val path: String,
+    @SerialName("path_with_namespace") val pathWithNamespace: String,
     @SerialName("default_branch") val defaultBranch: String,
-    @SerialName("_links") val links: ProjectLinks
-)
+    @SerialName("_links") val links: ProjectLinks,
+) // @formatter:on
 
 @Serializable
-data class ProjectLinks(
-    val self: String, val events: String
-)
+data class ProjectLinks( // @formatter:off
+    val self: String,
+    val events: String
+) // @formatter:on
+
+@Serializable
+data class Release( // @formatter:off
+    val name: String,
+    @SerialName("tag_name") val tagName: String,
+    val description: String,
+    @SerialName("upcoming_release") val upcomingRelease: Boolean,
+    val commit: ReleaseCommit
+) // @formatter:on
+
+@Serializable
+data class ReleaseCommit( // @formatter:off
+    val id: String,
+    @SerialName("short_id") val shortId: String,
+    @SerialName("web_url") val webUrl: String
+) // @formatter:on

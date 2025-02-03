@@ -31,6 +31,7 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.utils.io.*
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +40,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.yield
 
 typealias CIOServer = EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>
 
@@ -103,12 +103,51 @@ internal class RadServer( // @formatter:off
         )
     }
 
-    private suspend fun findRoutingTarget(path: String, userAgent: String): HttpResponse? {
+    private fun Application.configure() {
+        install(ContentNegotiation) {
+            json(json)
+        }
+        // TODO: use ktor-error-pages once available
+        install(StatusPages)
+        routing {
+            statusRouting()
+            mavenRouting()
+            binariesRouting()
+        }
+    }
+
+    private fun Routing.statusRouting() {
+        get("/status") {
+            val projectList = index.projects.value.joinToString(
+                "\n"
+            ) { "<li><b>${it.name}</b>: ${it.links.self}</li>" }
+            call.respondHtml(
+                """
+                    <html lang='en'>
+                        <head>
+                            <meta charset='UTF-8'>
+                            <title>Rad Status</title>
+                        </head>
+                        <body>
+                            <h1>Serving projects</h1>
+                            <ul>
+                                $projectList
+                            </ul>
+                        </body>
+                    </html>
+                """.trimIndent()
+            )
+        }
+    }
+
+    private suspend inline fun findMavenRoutingTarget(
+        path: String, userAgent: String
+    ): HttpResponse? {
         return index.projects.value.filter { it.path in path }.map {
             coroutineScope.async {
                 val targetPath = "${it.links.self}/packages$path"
-                logger.debug { "Attempting to resolve at $targetPath" }
-                client.client.get(targetPath) {
+                logger.debug { "Attempting to resolve maven target at $targetPath" }
+                client.client.head(targetPath) {
                     headers {
                         append("user-agent", userAgent)
                         append("accept", "*/*")
@@ -118,12 +157,15 @@ internal class RadServer( // @formatter:off
         }.awaitAll().find { it.status == HttpStatusCode.OK }
     }
 
-    private suspend fun RoutingContext.handleProxyRequest(sendData: Boolean = true) {
+    @OptIn(InternalAPI::class)
+    private suspend fun RoutingContext.handleProxyRequest(
+        redirect: Boolean = true, routeFinder: suspend (String, String) -> HttpResponse?
+    ) {
         val request = call.request
         val path = request.path()
         logger.debug { "Got GET request: $path" }
         val userAgent = request.header("user-agent") ?: DEFAULT_USER_AGENT
-        val proxiedResponse = findRoutingTarget(path, userAgent)
+        val proxiedResponse = routeFinder(path, userAgent)
         if (proxiedResponse == null) {
             logger.debug { "Couldn't find resource $path" }
             call.respond(HttpStatusCode.NotFound)
@@ -138,46 +180,83 @@ internal class RadServer( // @formatter:off
                 appendCommonFrom(proxiedResponse.headers)
             }
         }
-        if (sendData) {
-            call.respondBytes(ContentType.Application.OctetStream, HttpStatusCode.OK, proxiedResponse::bodyAsBytes)
+        if (redirect) {
+            call.respondRedirect(proxiedResponse.request.url, true)
             return
         }
         call.respond(HttpStatusCode.OK) // For handling HEAD requests
     }
 
-    private fun Application.configure() {
-        install(ContentNegotiation) {
-            json(json)
+    private fun Routing.mavenRouting() {
+        head("/maven/{...}") {
+            handleProxyRequest(
+                redirect = false, routeFinder = ::findMavenRoutingTarget
+            )
         }
-        install(StatusPages)
-        routing {
-            get("/status") {
-                val projectList = index.projects.value.joinToString(
-                    "\n"
-                ) { "<li><b>${it.name}</b>: ${it.links.self}</li>" }
-                call.respondHtml(
-                    """
-                    <html lang='en'>
-                        <head>
-                            <meta charset='UTF-8'>
-                            <title>Rad Status</title>
-                        </head>
-                        <body>
-                            <h1>Serving projects</h1>
-                            <ul>
-                                $projectList
-                            </ul>
-                        </body>
-                    </html>
-                """.trimIndent()
-                )
+        get("/maven/{...}") {
+            handleProxyRequest(
+                redirect = true, routeFinder = ::findMavenRoutingTarget
+            )
+        }
+    }
+
+    private suspend fun findBinaryRoutingTarget(
+        project: Project, path: String, userAgent: String
+    ): HttpResponse {
+        val targetPath = "${project.links.self}/packages$path"
+        logger.debug { "Attempting to resolve binary target at $targetPath" }
+        return client.client.head(targetPath) {
+            headers {
+                append("user-agent", userAgent)
+                append("accept", "*/*")
             }
-            head("/maven/{...}") {
-                handleProxyRequest(false)
+        }
+    }
+
+    private fun Parameters.findProject(): Project? {
+        val project = this["project"]
+        logger.debug { "Looking for project '$project' to fetch binaries from" }
+        return index.projects.value.find { it.path == project }
+    }
+
+    private suspend fun RoutingContext.binariesRouting(redirect: Boolean) {
+        val variables = call.request.pathVariables
+        val params = variables.getAll("params")
+        if (params == null) {
+            call.respond(HttpStatusCode.NotFound)
+            return
+        }
+        val project = variables.findProject()
+        if (project == null) {
+            call.respond(HttpStatusCode.NotFound)
+            return
+        }
+        // Handle requests for latest binaries through index
+        if (params[0] == "latest") {
+            val projectName = variables["project"]
+            logger.debug { "Resolving latest version for $projectName" }
+            val latestVersion = index.releases.value[projectName]?.firstOrNull()?.tagName
+            if (latestVersion == null) {
+                call.respond(HttpStatusCode.NotFound)
+                return
             }
-            get("/maven/{...}") {
-                handleProxyRequest()
+            val resolvedPath = "$latestVersion/${params.slice(1..<params.size).joinToString("/")}"
+            logger.debug { "Resolved path for latest version: $resolvedPath" }
+            handleProxyRequest(redirect = redirect) { _, agent ->
+                findBinaryRoutingTarget(project, "/generic/build/$resolvedPath", agent)
             }
+        }
+        handleProxyRequest(redirect = redirect) { _, agent ->
+            findBinaryRoutingTarget(project, "/generic/build/${params.joinToString("/")}", agent)
+        }
+    }
+
+    private fun Routing.binariesRouting() {
+        head("/binaries/{project}/{params...}") {
+            binariesRouting(false)
+        }
+        get("/binaries/{project}/{params...}") {
+            binariesRouting(true)
         }
     }
 
@@ -199,7 +278,7 @@ internal class RadServer( // @formatter:off
         coroutineScope.launch {
             logger.info { "Starting command coroutine" }
             while (true) {
-                when (readlnOrNull() ?: yield()) {
+                when (readlnOrNull()) {
                     "exit", "stop", "quit" -> break
                 }
             }
