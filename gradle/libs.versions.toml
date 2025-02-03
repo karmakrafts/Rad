@@ -1,11 +1,11 @@
 [versions]
-rad = "1.0.6"
+rad = "1.1.0"
 
-kotlin = "2.1.0" # https://github.com/JetBrains/kotlin/releases
+kotlin = "2.1.10" # https://github.com/JetBrains/kotlin/releases
 kotlinxSerialization = "1.8.0" # https://github.com/Kotlin/kotlinx.serialization/releases
 ktor = "3.1.0-eap-1216" # https://github.com/ktorio/ktor/releases
 clikt = "4.4.0" # https://github.com/ajalt/clikt/releases TODO: update to 5.x once properly compatible
-skroll = "1.2.1" # https://git.karmakrafts.dev/kk/skroll/-/packages
+skroll = "1.3.0" # https://git.karmakrafts.dev/kk/skroll/-/packages
 
 [libraries]
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
