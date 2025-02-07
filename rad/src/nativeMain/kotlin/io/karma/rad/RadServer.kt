@@ -40,6 +40,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import kotlin.native.runtime.GC
 import kotlin.native.runtime.NativeRuntimeApi
 
@@ -179,7 +180,9 @@ internal class RadServer( // @formatter:off
     private suspend inline fun findMavenRoutingTarget(
         path: String, userAgent: String
     ): HttpResponse? {
-        return index.projects.value.filter { it.path in path }.map {
+        val projects = index.projects.value
+        if (projects.isEmpty()) return null
+        return projects.filter { it.path in path }.map {
             coroutineScope.async {
                 val targetPath = "${it.links.self}/packages$path"
                 logger.debug { "Attempting to resolve maven target at $targetPath" }
@@ -250,18 +253,22 @@ internal class RadServer( // @formatter:off
     }
 
     private fun Parameters.findProject(): Project? {
+        val projects = index.projects.value
+        if (projects.isEmpty()) return null
         val project = this["project"]
         logger.debug { "Looking for project '$project' to fetch binaries from" }
-        return index.projects.value.find { it.path == project }
+        return projects.find { it.path == project }
     }
 
     private suspend fun RoutingContext.binariesRouting(redirect: Boolean) {
         val variables = call.request.pathVariables
+
         val params = variables.getAll("params")
         if (params == null) {
             call.respond(HttpStatusCode.NotFound)
             return
         }
+
         val project = variables.findProject()
         if (project == null) {
             call.respond(HttpStatusCode.NotFound)
@@ -269,13 +276,21 @@ internal class RadServer( // @formatter:off
         }
         // Handle requests for latest binaries through index
         if (params[0] == "latest") {
+            val releases = index.releases.value
+            if (releases.isEmpty()) {
+                call.respond(HttpStatusCode.NotFound)
+                return
+            }
+
             val projectName = variables["project"]
             logger.debug { "Resolving latest version for $projectName" }
+
             val latestVersion = index.releases.value[projectName]?.firstOrNull()?.tagName
             if (latestVersion == null) {
                 call.respond(HttpStatusCode.NotFound)
                 return
             }
+
             val resolvedPath = "$latestVersion/${params.slice(1..<params.size).joinToString("/")}"
             logger.debug { "Resolved path for latest version: $resolvedPath" }
             handleProxyRequest(redirect = redirect) { _, agent ->
@@ -314,7 +329,7 @@ internal class RadServer( // @formatter:off
         coroutineScope.launch {
             logger.info { "Starting command coroutine" }
             while (true) {
-                when (readlnOrNull()) {
+                when (readlnOrNull() ?: yield()) {
                     "exit", "stop", "quit" -> break
                 }
             }
