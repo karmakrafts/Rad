@@ -198,7 +198,7 @@ internal class RadServer( // @formatter:off
 
     @OptIn(InternalAPI::class)
     private suspend fun RoutingContext.handleProxyRequest(
-        redirect: Boolean = true, routeFinder: suspend (String, String) -> HttpResponse?
+        routeFinder: suspend (String, String) -> HttpResponse?
     ) {
         val request = call.request
         val path = request.path()
@@ -219,23 +219,15 @@ internal class RadServer( // @formatter:off
                 appendCommonFrom(proxiedResponse.headers)
             }
         }
-        if (redirect) {
-            call.respondRedirect(proxiedResponse.request.url, true)
-            return
-        }
-        call.respond(HttpStatusCode.OK) // For handling HEAD requests
+        call.respondRedirect(proxiedResponse.request.url, true)
     }
 
     private fun Routing.mavenRouting() {
         head("/maven/{...}") {
-            handleProxyRequest(
-                redirect = false, routeFinder = ::findMavenRoutingTarget
-            )
+            handleProxyRequest(::findMavenRoutingTarget)
         }
         get("/maven/{...}") {
-            handleProxyRequest(
-                redirect = true, routeFinder = ::findMavenRoutingTarget
-            )
+            handleProxyRequest(::findMavenRoutingTarget)
         }
     }
 
@@ -260,7 +252,7 @@ internal class RadServer( // @formatter:off
         return projects.find { it.path == project }
     }
 
-    private suspend fun RoutingContext.binariesRouting(redirect: Boolean) {
+    private suspend fun RoutingContext.binariesRouting() {
         val variables = call.request.pathVariables
 
         val params = variables.getAll("params")
@@ -293,21 +285,21 @@ internal class RadServer( // @formatter:off
 
             val resolvedPath = "$latestVersion/${params.slice(1..<params.size).joinToString("/")}"
             logger.debug { "Resolved path for latest version: $resolvedPath" }
-            handleProxyRequest(redirect = redirect) { _, agent ->
+            handleProxyRequest { _, agent ->
                 findBinaryRoutingTarget(project, "/generic/build/$resolvedPath", agent)
             }
         }
-        handleProxyRequest(redirect = redirect) { _, agent ->
+        handleProxyRequest { _, agent ->
             findBinaryRoutingTarget(project, "/generic/build/${params.joinToString("/")}", agent)
         }
     }
 
     private fun Routing.binariesRouting() {
         head("/binaries/{project}/{params...}") {
-            binariesRouting(false)
+            binariesRouting()
         }
         get("/binaries/{project}/{params...}") {
-            binariesRouting(true)
+            binariesRouting()
         }
     }
 
