@@ -182,7 +182,7 @@ internal class RadServer( // @formatter:off
     ): HttpResponse? {
         val projects = index.projects.value
         if (projects.isEmpty()) return null
-        return projects.filter { it.path in path }.map {
+        return projects.map {
             coroutineScope.async {
                 val targetPath = "${it.links.self}/packages$path"
                 logger.debug { "Attempting to resolve maven target at $targetPath" }
