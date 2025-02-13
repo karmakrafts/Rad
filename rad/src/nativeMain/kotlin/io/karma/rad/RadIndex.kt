@@ -25,7 +25,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -73,11 +72,7 @@ class RadIndex(
                 }
                 response.body<List<Project>>()
             }
-        }.run {
-            val result = awaitAll().flatten()
-            forEach { it.cancelAndJoin() }
-            result
-        })
+        }.awaitAll().flatten())
     }
 
     private suspend fun fetchReleases() {
@@ -92,10 +87,6 @@ class RadIndex(
                 }
                 project.path to response.body<List<Release>>()
             }
-        }.run {
-            val result = awaitAll().toMap()
-            forEach { it.cancelAndJoin() }
-            result
-        })
+        }.awaitAll().toMap())
     }
 }

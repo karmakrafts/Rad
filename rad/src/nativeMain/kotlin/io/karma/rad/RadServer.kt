@@ -199,11 +199,7 @@ internal class RadServer( // @formatter:off
                     }
                 }
             }
-        }.run {
-            val result = awaitAll().find { it.status == HttpStatusCode.OK }
-            forEach { it.cancelAndJoin() }
-            result
-        }
+        }.awaitAll().find { it.status == HttpStatusCode.OK }
     }
 
     @OptIn(InternalAPI::class)
