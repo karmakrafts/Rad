@@ -36,10 +36,14 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import kotlin.native.runtime.GC
 import kotlin.native.runtime.NativeRuntimeApi
@@ -56,12 +60,14 @@ internal class RadServer( // @formatter:off
             "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0"
     }
 
-    private val logger: Logger = Logger.create(this::class)
+    private val logger: Logger = Logger(this::class)
 
-    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO + CoroutineExceptionHandler { _, error ->
-        logger.error(error) { "Coroutine could not finish" }
-    })
+    private val coroutineScope: CoroutineScope =
+        CoroutineScope(Dispatchers.IO + SupervisorJob() + CoroutineExceptionHandler { _, error ->
+            logger.error(error) { "Coroutine could not finish" }
+        })
 
+    private lateinit var commandJob: Job
     private val client: RadClient = RadClient()
     private val index: RadIndex = RadIndex(config, coroutineScope, client.client)
 
@@ -182,7 +188,7 @@ internal class RadServer( // @formatter:off
     ): HttpResponse? {
         val projects = index.projects.value
         if (projects.isEmpty()) return null
-        return projects.map {
+        return projects.filter { it.path in path }.map {
             coroutineScope.async {
                 val targetPath = "${it.links.self}/packages$path"
                 logger.debug { "Attempting to resolve maven target at $targetPath" }
@@ -193,7 +199,11 @@ internal class RadServer( // @formatter:off
                     }
                 }
             }
-        }.awaitAll().find { it.status == HttpStatusCode.OK }
+        }.run {
+            val result = awaitAll().find { it.status == HttpStatusCode.OK }
+            forEach { it.cancelAndJoin() }
+            result
+        }
     }
 
     @OptIn(InternalAPI::class)
@@ -314,11 +324,14 @@ internal class RadServer( // @formatter:off
         index.close()
         client.close()
         logger.info { "Cancelling coroutine scope" }
+        runBlocking {
+            commandJob.cancelAndJoin()
+        }
         coroutineScope.cancel()
     }
 
     private fun acceptCommands() {
-        coroutineScope.launch {
+        commandJob = coroutineScope.launch {
             logger.info { "Starting command coroutine" }
             while (true) {
                 when (readlnOrNull() ?: yield()) {

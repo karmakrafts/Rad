@@ -17,6 +17,7 @@
 package io.karma.rad
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
@@ -81,7 +82,7 @@ class CLI : CliktCommand() {
                 ) // @formatter:on
             }
         }
-        val logger = Logger.create(this::class)
+        val logger = Logger(this::class)
         val config = SystemFileSystem.source(Path(config)).buffered().use {
             json.decodeFromSource<RadConfig>(it)
         }

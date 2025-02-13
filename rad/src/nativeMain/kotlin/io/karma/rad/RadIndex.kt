@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -33,10 +34,10 @@ import kotlinx.coroutines.runBlocking
 class RadIndex(
     private val config: RadConfig, private val coroutineScope: CoroutineScope, private val client: HttpClient
 ) : AutoCloseable {
-    private val logger: Logger = Logger.create(this::class)
+    private val logger: Logger = Logger(this::class)
     private val endpoint: String = "https://${config.instance}/api/v4"
     private val isRunning: MutableStateFlow<Boolean> = MutableStateFlow(true)
-    internal val projects: MutableStateFlow<List<Project>> = MutableStateFlow<List<Project>>(emptyList())
+    internal val projects: MutableStateFlow<List<Project>> = MutableStateFlow(emptyList())
     internal val releases: MutableStateFlow<Map<String, List<Release>>> = MutableStateFlow(emptyMap())
     private val pollJob: Job
 
@@ -61,7 +62,7 @@ class RadIndex(
 
     private suspend fun fetchProjects() {
         logger.debug { "Fetching project information.." }
-        projects.value = config.groups.map { group ->
+        projects.emit(config.groups.map { group ->
             coroutineScope.async {
                 val endpoint = "$endpoint/groups/${group.percentEncode()}/projects"
                 logger.debug { "Sending request to endpoint $endpoint" }
@@ -72,11 +73,15 @@ class RadIndex(
                 }
                 response.body<List<Project>>()
             }
-        }.awaitAll().flatten()
+        }.run {
+            val result = awaitAll().flatten()
+            forEach { it.cancelAndJoin() }
+            result
+        })
     }
 
     private suspend fun fetchReleases() {
-        releases.value = projects.value.map { project ->
+        releases.emit(projects.value.map { project ->
             coroutineScope.async {
                 val endpoint = "$endpoint/projects/${project.pathWithNamespace.percentEncode()}/releases"
                 logger.debug { "Sending request to endpoint $endpoint" }
@@ -87,6 +92,10 @@ class RadIndex(
                 }
                 project.path to response.body<List<Release>>()
             }
-        }.awaitAll().toMap()
+        }.run {
+            val result = awaitAll().toMap()
+            forEach { it.cancelAndJoin() }
+            result
+        })
     }
 }
