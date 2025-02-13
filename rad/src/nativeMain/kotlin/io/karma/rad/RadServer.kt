@@ -298,6 +298,7 @@ internal class RadServer( // @formatter:off
             handleProxyRequest { _, agent ->
                 findBinaryRoutingTarget(project, "/generic/build/$resolvedPath", agent)
             }
+            return
         }
         handleProxyRequest { _, agent ->
             findBinaryRoutingTarget(project, "/generic/build/${params.joinToString("/")}", agent)
